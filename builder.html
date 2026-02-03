@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Builder</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #1a1a1a;
+      --surface-light: #2a2a2a;
+      --border: #333;
+      --text: #f0f0f0;
+      --text-muted: #888;
+      --accent: #4f8cff;
+      --accent-hover: #6ba0ff;
+      --gold: #d4a847;
+      --success: #4caf50;
+      --danger: #e53935;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    header .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .generate-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .generate-btn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+    .generate-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+    .tab {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .tab:hover {
+      color: var(--text);
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+    label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input, select, textarea {
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    .list-container {
+      margin-top: 16px;
+    }
+    .list-item {
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .list-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .list-item-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .list-item-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .delete-btn {
+      background: var(--danger);
+      color: white;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .add-btn {
+      background: var(--surface-light);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      width: 100%;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .reading-type {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .reading-type.primary { background: #8b4513; }
+    .reading-type.secondary { background: #26a69a; }
+    .reading-type.theoretical { background: #5c6bc0; }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+    .inline-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .inline-form.schedule {
+      grid-template-columns: 120px 1fr 80px auto;
+    }
+    .mini-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .preview-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+    .empty-state p {
+      margin-bottom: 16px;
+    }
+    .meeting-days {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .meeting-days label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      text-transform: none;
+    }
+    .meeting-days input:checked + span {
+      color: var(--accent);
+    }
+    .readings-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .reading-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      background: var(--bg);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .reading-item .info {
+      flex: 1;
+    }
+    .reading-item .title {
+      font-weight: 500;
+      font-size: 13px;
+    }
+    .reading-item .meta {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow: auto;
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 24px;
+    }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .btn-secondary {
+      background: var(--surface-light);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .session-card {
+      border-left: 3px solid var(--border);
+      padding-left: 16px;
+    }
+    .session-card.no-class {
+      border-left-color: var(--danger);
+      opacity: 0.7;
+    }
+    .session-date {
+      font-size: 11px;
+      color: var(--gold);
+      font-weight: 600;
+    }
+    .session-topic {
+      font-size: 15px;
+      font-weight: 500;
+      margin: 4px 0;
+    }
+    .session-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--surface-light);
+      color: var(--text-muted);
+    }
+    .status-badge.complete {
+      background: rgba(76, 175, 80, 0.2);
+      color: var(--success);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dashboard Builder</h1>
+      <div class="subtitle">Create a teaching dashboard in minutes</div>
+    </div>
+    <button class="generate-btn" onclick="generateDashboard()">Generate & Download</button>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('course')">Course Info</button>
+      <button class="tab" onclick="showTab('students')">Students</button>
+      <button class="tab" onclick="showTab('schedule')">Schedule</button>
+      <button class="tab" onclick="showTab('preview')">Preview</button>
+    </div>
+
+    <!-- Course Info Tab -->
+    <div id="tab-course" class="tab-content active">
+      <div class="card">
+        <h2>Course Details</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Course Code</label>
+            <input type="text" id="courseCode" placeholder="HIST 213" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>Course Title</label>
+            <input type="text" id="courseTitle" placeholder="Modern East Asia" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>Term</label>
+            <input type="text" id="courseTerm" placeholder="Winter 2026" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" id="courseStart" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <input type="date" id="courseEnd" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>Syllabus URL</label>
+            <input type="url" id="syllabusUrl" placeholder="https://docs.google.com/..." oninput="saveData()">
+          </div>
+          <div class="form-group full">
+            <label>Meeting Days</label>
+            <div class="meeting-days">
+              <label><input type="checkbox" value="Monday" onchange="saveData()"><span>Monday</span></label>
+              <label><input type="checkbox" value="Tuesday" onchange="saveData()"><span>Tuesday</span></label>
+              <label><input type="checkbox" value="Wednesday" onchange="saveData()"><span>Wednesday</span></label>
+              <label><input type="checkbox" value="Thursday" onchange="saveData()"><span>Thursday</span></label>
+              <label><input type="checkbox" value="Friday" onchange="saveData()"><span>Friday</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Textbook (Optional)</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Textbook Title</label>
+            <input type="text" id="textbookTitle" placeholder="Modern East Asia from 1600" oninput="saveData()">
+          </div>
+          <div class="form-group">
+            <label>Author</label>
+            <input type="text" id="textbookAuthor" placeholder="Ebrey & Walthall" oninput="saveData()">
+          </div>
+          <div class="form-group full">
+            <label>Textbook URL (Google Drive link)</label>
+            <input type="url" id="textbookUrl" placeholder="https://drive.google.com/..." oninput="saveData()">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Class Notes</h2>
+        <div class="form-group">
+          <label>Class Notes Google Doc URL</label>
+          <input type="url" id="classNotesUrl" placeholder="https://docs.google.com/document/d/..." oninput="saveData()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Students Tab -->
+    <div id="tab-students" class="tab-content">
+      <div class="card">
+        <h2>Class Roster</h2>
+        <div id="studentsList" class="list-container"></div>
+        <button class="add-btn" onclick="openStudentModal()">+ Add Student</button>
+      </div>
+    </div>
+
+    <!-- Schedule Tab -->
+    <div id="tab-schedule" class="tab-content">
+      <div class="card">
+        <h2>Course Schedule</h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+          Add each class session with its topic and readings.
+        </p>
+        <div id="scheduleList" class="list-container"></div>
+        <button class="add-btn" onclick="openSessionModal()">+ Add Session</button>
+      </div>
+    </div>
+
+    <!-- Preview Tab -->
+    <div id="tab-preview" class="tab-content">
+      <div class="card">
+        <h2>Generated config.json</h2>
+        <div id="previewBox" class="preview-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Modal -->
+  <div id="studentModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add Student</h3>
+        <button class="modal-close" onclick="closeModal('studentModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="studentFirstName">
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="studentLastName">
+          </div>
+          <div class="form-group">
+            <label>Preferred Name (optional)</label>
+            <input type="text" id="studentPreferredName">
+          </div>
+          <div class="form-group">
+            <label>Pronouns (optional)</label>
+            <input type="text" id="studentPronouns" placeholder="She/Her">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('studentModal')">Cancel</button>
+        <button class="mini-btn" onclick="addStudent()">Add Student</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Modal -->
+  <div id="sessionModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="sessionModalTitle">Add Session</h3>
+        <button class="modal-close" onclick="closeModal('sessionModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="sessionDate">
+          </div>
+          <div class="form-group">
+            <label>Week Number</label>
+            <input type="number" id="sessionWeek" min="1" value="1">
+          </div>
+          <div class="form-group full">
+            <label>Topic</label>
+            <input type="text" id="sessionTopic" placeholder="Introduction to the course">
+          </div>
+          <div class="form-group full">
+            <label>Theme (optional)</label>
+            <input type="text" id="sessionTheme" placeholder="Getting Started">
+          </div>
+          <div class="form-group">
+            <label>Textbook Reference (optional)</label>
+            <input type="text" id="sessionTextbookRef" placeholder="Ch. 1">
+          </div>
+          <div class="form-group">
+            <label>Special Instructions (optional)</label>
+            <input type="text" id="sessionSpecial" placeholder="Skim for thesis">
+          </div>
+          <div class="form-group full checkbox-group">
+            <input type="checkbox" id="sessionNoClass">
+            <label style="text-transform:none">No class this day (holiday, reading period, etc.)</label>
+          </div>
+        </div>
+
+        <div class="readings-section">
+          <h4 style="font-size: 13px; margin-bottom: 12px;">Readings</h4>
+          <div id="sessionReadings"></div>
+          <button class="add-btn" style="margin-top: 8px; padding: 10px;" onclick="addReading()">+ Add Reading</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('sessionModal')">Cancel</button>
+        <button class="mini-btn" onclick="saveSession()">Save Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reading Modal -->
+  <div id="readingModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add Reading</h3>
+        <button class="modal-close" onclick="closeModal('readingModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Title</label>
+            <input type="text" id="readingTitle" placeholder="Introduction to the Field">
+          </div>
+          <div class="form-group">
+            <label>Author (optional)</label>
+            <input type="text" id="readingAuthor" placeholder="Smith">
+          </div>
+          <div class="form-group">
+            <label>Source (optional)</label>
+            <input type="text" id="readingSource" placeholder="Journal/Book">
+          </div>
+          <div class="form-group">
+            <label>Pages (optional)</label>
+            <input type="text" id="readingPages" placeholder="1-25">
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="readingType">
+              <option value="primary">Primary Source</option>
+              <option value="secondary">Secondary</option>
+              <option value="theoretical">Theoretical</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>URL (Google Drive link)</label>
+            <input type="url" id="readingUrl" placeholder="https://drive.google.com/...">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('readingModal')">Cancel</button>
+        <button class="mini-btn" onclick="saveReading()">Add Reading</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+let data = {
+  course: {
+    code: '',
+    title: '',
+    term: '',
+    startDate: '',
+    endDate: '',
+    meetingDays: [],
+    syllabusUrl: '',
+    canvasUrl: ''
+  },
+  textbook: {
+    title: '',
+    author: '',
+    url: ''
+  },
+  classNotesUrl: '',
+  students: [],
+  schedule: []
+};
+
+let currentSessionIndex = -1;
+let tempReadings = [];
+
+// Load from localStorage
+function loadData() {
+  const saved = localStorage.getItem('dashboardBuilder');
+  if (saved) {
+    data = JSON.parse(saved);
+    populateForm();
+  }
+}
+
+function saveData() {
+  // Collect course info
+  data.course.code = document.getElementById('courseCode').value;
+  data.course.title = document.getElementById('courseTitle').value;
+  data.course.term = document.getElementById('courseTerm').value;
+  data.course.startDate = document.getElementById('courseStart').value;
+  data.course.endDate = document.getElementById('courseEnd').value;
+  data.course.syllabusUrl = document.getElementById('syllabusUrl').value;
+
+  // Meeting days
+  data.course.meetingDays = [];
+  document.querySelectorAll('.meeting-days input:checked').forEach(cb => {
+    data.course.meetingDays.push(cb.value);
+  });
+
+  // Textbook
+  data.textbook.title = document.getElementById('textbookTitle').value;
+  data.textbook.author = document.getElementById('textbookAuthor').value;
+  data.textbook.url = document.getElementById('textbookUrl').value;
+
+  // Class notes
+  data.classNotesUrl = document.getElementById('classNotesUrl').value;
+
+  localStorage.setItem('dashboardBuilder', JSON.stringify(data));
+  updatePreview();
+}
+
+function populateForm() {
+  document.getElementById('courseCode').value = data.course.code || '';
+  document.getElementById('courseTitle').value = data.course.title || '';
+  document.getElementById('courseTerm').value = data.course.term || '';
+  document.getElementById('courseStart').value = data.course.startDate || '';
+  document.getElementById('courseEnd').value = data.course.endDate || '';
+  document.getElementById('syllabusUrl').value = data.course.syllabusUrl || '';
+  document.getElementById('textbookTitle').value = data.textbook?.title || '';
+  document.getElementById('textbookAuthor').value = data.textbook?.author || '';
+  document.getElementById('textbookUrl').value = data.textbook?.url || '';
+  document.getElementById('classNotesUrl').value = data.classNotesUrl || '';
+
+  // Meeting days
+  document.querySelectorAll('.meeting-days input').forEach(cb => {
+    cb.checked = data.course.meetingDays?.includes(cb.value);
+  });
+
+  renderStudents();
+  renderSchedule();
+  updatePreview();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
+  document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
+  if (name === 'preview') updatePreview();
+}
+
+// Students
+function openStudentModal() {
+  document.getElementById('studentFirstName').value = '';
+  document.getElementById('studentLastName').value = '';
+  document.getElementById('studentPreferredName').value = '';
+  document.getElementById('studentPronouns').value = '';
+  document.getElementById('studentModal').classList.add('active');
+}
+
+function addStudent() {
+  const first = document.getElementById('studentFirstName').value.trim();
+  const last = document.getElementById('studentLastName').value.trim();
+  if (!first || !last) return alert('First and last name required');
+
+  data.students.push({
+    id: String(data.students.length + 1),
+    firstName: first,
+    lastName: last,
+    preferredName: document.getElementById('studentPreferredName').value.trim(),
+    pronouns: document.getElementById('studentPronouns').value.trim(),
+    photo: `photos/${last.toLowerCase()}_${first.toLowerCase()}.png`
+  });
+
+  saveData();
+  renderStudents();
+  closeModal('studentModal');
+}
+
+function deleteStudent(index) {
+  data.students.splice(index, 1);
+  saveData();
+  renderStudents();
+}
+
+function renderStudents() {
+  const container = document.getElementById('studentsList');
+  if (data.students.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No students added yet</p></div>';
+    return;
+  }
+
+  container.innerHTML = data.students.map((s, i) => `
+    <div class="list-item">
+      <div class="list-item-header">
+        <div>
+          <div class="list-item-title">${s.preferredName || s.firstName} ${s.lastName}</div>
+          <div class="list-item-subtitle">${s.pronouns || ''}</div>
+        </div>
+        <button class="delete-btn" onclick="deleteStudent(${i})">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Schedule
+function openSessionModal(index = -1) {
+  currentSessionIndex = index;
+  tempReadings = [];
+
+  if (index >= 0) {
+    const s = data.schedule[index];
+    document.getElementById('sessionModalTitle').textContent = 'Edit Session';
+    document.getElementById('sessionDate').value = s.date;
+    document.getElementById('sessionWeek').value = s.week;
+    document.getElementById('sessionTopic').value = s.topic;
+    document.getElementById('sessionTheme').value = s.theme || '';
+    document.getElementById('sessionTextbookRef').value = s.textbookRef || '';
+    document.getElementById('sessionSpecial').value = s.special || '';
+    document.getElementById('sessionNoClass').checked = s.noClass || false;
+    tempReadings = [...(s.readings || [])];
+  } else {
+    document.getElementById('sessionModalTitle').textContent = 'Add Session';
+    document.getElementById('sessionDate').value = '';
+    document.getElementById('sessionWeek').value = '1';
+    document.getElementById('sessionTopic').value = '';
+    document.getElementById('sessionTheme').value = '';
+    document.getElementById('sessionTextbookRef').value = '';
+    document.getElementById('sessionSpecial').value = '';
+    document.getElementById('sessionNoClass').checked = false;
+  }
+
+  renderTempReadings();
+  document.getElementById('sessionModal').classList.add('active');
+}
+
+function saveSession() {
+  const date = document.getElementById('sessionDate').value;
+  const topic = document.getElementById('sessionTopic').value.trim();
+  if (!date || !topic) return alert('Date and topic required');
+
+  const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+
+  const session = {
+    date: date,
+    day: dayName,
+    week: parseInt(document.getElementById('sessionWeek').value) || 1,
+    topic: topic,
+    theme: document.getElementById('sessionTheme').value.trim() || null,
+    textbookRef: document.getElementById('sessionTextbookRef').value.trim() || null,
+    readings: tempReadings,
+    webLinks: [],
+    notes: null,
+    special: document.getElementById('sessionSpecial').value.trim() || null,
+    noClass: document.getElementById('sessionNoClass').checked,
+    assignment: null,
+    film: null,
+    presentations: false
+  };
+
+  if (currentSessionIndex >= 0) {
+    data.schedule[currentSessionIndex] = session;
+  } else {
+    data.schedule.push(session);
+  }
+
+  // Sort by date
+  data.schedule.sort((a, b) => a.date.localeCompare(b.date));
+
+  saveData();
+  renderSchedule();
+  closeModal('sessionModal');
+}
+
+function deleteSession(index) {
+  data.schedule.splice(index, 1);
+  saveData();
+  renderSchedule();
+}
+
+function renderSchedule() {
+  const container = document.getElementById('scheduleList');
+  if (data.schedule.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No sessions added yet</p></div>';
+    return;
+  }
+
+  container.innerHTML = data.schedule.map((s, i) => `
+    <div class="list-item session-card ${s.noClass ? 'no-class' : ''}">
+      <div class="list-item-header">
+        <div>
+          <div class="session-date">Week ${s.week} · ${s.day}, ${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+          <div class="session-topic">${s.topic}</div>
+          <div class="session-meta">
+            ${s.noClass ? '<span class="status-badge">No Class</span>' : ''}
+            ${s.readings?.length ? `<span class="status-badge complete">${s.readings.length} reading${s.readings.length > 1 ? 's' : ''}</span>` : ''}
+            ${s.textbookRef ? `<span class="status-badge">${s.textbookRef}</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="mini-btn" onclick="openSessionModal(${i})">Edit</button>
+          <button class="delete-btn" onclick="deleteSession(${i})">×</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Readings within session
+function addReading() {
+  document.getElementById('readingTitle').value = '';
+  document.getElementById('readingAuthor').value = '';
+  document.getElementById('readingSource').value = '';
+  document.getElementById('readingPages').value = '';
+  document.getElementById('readingType').value = 'primary';
+  document.getElementById('readingUrl').value = '';
+  document.getElementById('readingModal').classList.add('active');
+}
+
+function saveReading() {
+  const title = document.getElementById('readingTitle').value.trim();
+  if (!title) return alert('Title required');
+
+  tempReadings.push({
+    title: title,
+    author: document.getElementById('readingAuthor').value.trim() || null,
+    source: document.getElementById('readingSource').value.trim() || null,
+    pages: document.getElementById('readingPages').value.trim() || null,
+    type: document.getElementById('readingType').value,
+    url: document.getElementById('readingUrl').value.trim() || null
+  });
+
+  renderTempReadings();
+  closeModal('readingModal');
+}
+
+function deleteTempReading(index) {
+  tempReadings.splice(index, 1);
+  renderTempReadings();
+}
+
+function renderTempReadings() {
+  const container = document.getElementById('sessionReadings');
+  if (tempReadings.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No readings added</div>';
+    return;
+  }
+
+  container.innerHTML = tempReadings.map((r, i) => `
+    <div class="reading-item">
+      <span class="reading-type ${r.type}">${r.type}</span>
+      <div class="info">
+        <div class="title">${r.title}</div>
+        <div class="meta">${[r.author, r.source, r.pages ? 'pp. ' + r.pages : ''].filter(Boolean).join(' · ')}</div>
+      </div>
+      <button class="delete-btn" onclick="deleteTempReading(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+function updatePreview() {
+  const config = {
+    course: data.course,
+    students: data.students,
+    textbook: data.textbook,
+    schedule: data.schedule,
+    classNotesUrl: data.classNotesUrl,
+    readingTypes: {
+      primary: { label: 'Primary', color: '#8b4513' },
+      secondary: { label: 'Secondary', color: '#26a69a' },
+      theoretical: { label: 'Theoretical', color: '#5c6bc0' }
+    }
+  };
+  document.getElementById('previewBox').textContent = JSON.stringify(config, null, 2);
+}
+
+// Generate dashboard
+async function generateDashboard() {
+  if (!data.course.code) {
+    alert('Please fill in at least the course code');
+    return;
+  }
+
+  const zip = new JSZip();
+
+  // Create config.json
+  const config = {
+    course: data.course,
+    students: data.students,
+    textbook: data.textbook,
+    schedule: data.schedule,
+    classNotesUrl: data.classNotesUrl,
+    readingTypes: {
+      primary: { label: 'Primary', color: '#8b4513' },
+      secondary: { label: 'Secondary', color: '#26a69a' },
+      theoretical: { label: 'Theoretical', color: '#5c6bc0' }
+    }
+  };
+  zip.file('config.json', JSON.stringify(config, null, 2));
+
+  // Fetch and add index.html template
+  const templateResponse = await fetch('index.html');
+  const templateHtml = await templateResponse.text();
+  zip.file('index.html', templateHtml);
+
+  // Create folders
+  zip.folder('photos');
+  zip.folder('prep');
+  zip.folder('print');
+
+  // Add a placeholder README
+  zip.file('README.md', `# ${data.course.code} Dashboard
+
+Generated with Dashboard Builder.
+
+## Setup
+
+1. Add student photos to \`photos/\` (format: \`lastname_firstname.png\`)
+2. Add prep JSONs to \`prep/execsummary-N.json\`
+3. Deploy to GitHub Pages or serve locally
+
+## Local Development
+
+\`\`\`bash
+python3 -m http.server 8080
+\`\`\`
+
+Then open http://localhost:8080
+`);
+
+  // Generate and download
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const courseName = data.course.code.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  a.href = url;
+  a.download = `${courseName}-dashboard.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Close modals on escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  }
+});
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// Init
+loadData();
+</script>
+</body>
+</html>
