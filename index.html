@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teaching Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #f5f5f7; --surface: #fff; --surface-alt: #fafafa; --border: #e5e5e5; --text: #1d1d1f; --text-muted: #86868b; --accent: #0071e3; --accent-light: #e1f0ff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .course-title { font-weight: 600; font-size: 15px; }
+    .plate-nav { display: flex; align-items: center; gap: 6px; }
+    .plate-nav button { background: none; border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+    .header-tools { display: flex; gap: 8px; }
+    .header-tools button { background: var(--surface-alt); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; }
+    main { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .roster-strip { background: var(--surface); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+    .roster-strip h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 14px; font-weight: 500; }
+    .roster-row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+    .student-nameplate {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      background: linear-gradient(145deg, #fefefe, #f5f5f5);
+      padding: 14px 18px 12px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+      border: 1px solid rgba(0,0,0,0.06);
+      min-width: 90px;
+      position: relative;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .student-nameplate:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08); }
+    .student-nameplate::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #8b4513, #a0522d, #8b4513);
+      border-radius: 4px 4px 0 0;
+    }
+    .student-nameplate img {
+      width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+      border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .student-nameplate .name {
+      font-size: 13px; font-weight: 600; text-align: center;
+      color: var(--text); letter-spacing: 0.3px;
+    }
+    .student-nameplate .pronouns {
+      font-size: 10px; color: var(--text-muted);
+      font-style: italic; margin-top: -4px;
+    }
+    .prep-container { background: var(--surface); border-radius: 12px; overflow: hidden; }
+    .prep-header {
+      background: linear-gradient(165deg, #2c3e50 0%, #34495e 40%, #4a5568 70%, #5a6673 100%);
+      color: white; padding: 24px 28px; position: relative; overflow: hidden;
+    }
+    .prep-header::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120"><path fill="rgba(255,255,255,0.03)" d="M0,60 C150,90 350,30 500,60 C650,90 850,30 1000,60 C1150,90 1200,60 1200,60 L1200,120 L0,120 Z"/><path fill="rgba(255,255,255,0.02)" d="M0,80 C200,110 400,50 600,80 C800,110 1000,50 1200,80 L1200,120 L0,120 Z"/></svg>');
+      background-position: bottom; background-repeat: no-repeat; background-size: cover;
+      pointer-events: none;
+    }
+    .prep-header .week-theme {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
+      color: #c9a962; margin-bottom: 6px; font-weight: 500; position: relative;
+    }
+    .prep-header h1 {
+      font-size: 26px; font-weight: 300; margin-bottom: 6px;
+      letter-spacing: 0.5px; position: relative;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .prep-header .date { font-size: 13px; opacity: 0.75; font-weight: 300; position: relative; letter-spacing: 0.3px; }
+    .prep-header .textbook-ref {
+      display: inline-block; background: rgba(201,169,98,0.2);
+      border: 1px solid rgba(201,169,98,0.3);
+      padding: 5px 12px; border-radius: 2px; font-size: 11px; margin-top: 12px;
+      color: #f0e6d0; position: relative; letter-spacing: 0.3px;
+    }
+    .prep-header .textbook-ref a { color: #f0e6d0; text-decoration: underline; }
+    .prep-body { display: grid; grid-template-columns: 1fr 340px; min-height: 400px; }
+    .prep-main { padding: 24px; border-right: 1px solid var(--border); }
+    .prep-sidebar { padding: 24px; background: var(--surface-alt); }
+    .section-title { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; }
+    .reading-card {
+      display: block; padding: 16px 18px; margin-bottom: 12px;
+      text-decoration: none; color: var(--text);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+    }
+    .reading-card:hover { transform: translateY(-2px); }
+    .reading-card .type-badge { display: inline-block; font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; margin-bottom: 8px; }
+    .reading-card .title { font-size: 14px; font-weight: 600; margin-bottom: 5px; line-height: 1.3; }
+    .reading-card .author { font-size: 12px; margin-bottom: 3px; }
+    .reading-card .source { font-size: 11px; }
+    .reading-card.primary {
+      background: linear-gradient(135deg, #faf6f0 0%, #f5efe6 50%, #f0ead8 100%);
+      border: 1px solid #d4c9b5; border-radius: 2px;
+      box-shadow: 2px 3px 8px rgba(139,90,43,0.12), inset 0 0 30px rgba(139,90,43,0.03);
+    }
+    .reading-card.primary:hover { box-shadow: 3px 5px 12px rgba(139,90,43,0.18); }
+    .reading-card.primary .type-badge { background: #8b4513; color: #fff; }
+    .reading-card.primary .title { font-family: Georgia, 'Times New Roman', serif; }
+    .reading-card.primary .author, .reading-card.primary .source { color: #7a6b5a; }
+    .reading-card.theoretical {
+      background: #fff; border: 1px solid #e0e0e0; border-left: 4px solid #5c6bc0; border-radius: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .reading-card.theoretical:hover { box-shadow: 0 3px 10px rgba(92,107,192,0.15); }
+    .reading-card.theoretical .type-badge { background: #5c6bc0; color: #fff; }
+    .reading-card.theoretical .title { font-weight: 700; letter-spacing: -0.3px; }
+    .reading-card.theoretical .author { color: #5c6bc0; font-weight: 500; }
+    .reading-card.theoretical .source { color: #888; }
+    .reading-card.secondary {
+      background: linear-gradient(to bottom, #fff 0%, #fafafa 100%);
+      border: 1px solid #e8e8e8; border-left: 3px solid #26a69a; border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    .reading-card.secondary:hover { box-shadow: 0 4px 12px rgba(38,166,154,0.15); }
+    .reading-card.secondary .type-badge { background: #26a69a; color: #fff; }
+    .reading-card.secondary .author { color: #26a69a; }
+    .reading-card.secondary .source { color: #888; }
+    .web-links { margin-top: 16px; }
+    .web-link { display: inline-block; font-size: 11px; background: var(--surface-alt); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; margin: 0 6px 6px 0; color: var(--accent); text-decoration: none; }
+    .upcoming-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .upcoming-card .plate-num { font-size: 13px; font-weight: 600; color: var(--accent); }
+    .upcoming-card .topic { font-size: 13px; margin-top: 4px; }
+    .upcoming-card .date { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .notes-box { background: #fffde7; border: 1px solid #fff59d; border-radius: 8px; padding: 14px; font-size: 12px; margin-bottom: 16px; }
+    .notes-box.special { background: #fff3e0; border-color: #ffcc80; }
+    .assignment-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .assignment-box .label { font-size: 10px; color: #2e7d32; text-transform: uppercase; }
+    .assignment-box .name { font-size: 14px; font-weight: 600; color: #1b5e20; }
+    .assignment-box .due { font-size: 12px; color: #388e3c; }
+    .film-box { background: #f3e5f5; border: 1px solid #ce93d8; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .film-box a { color: #7b1fa2; }
+    .no-class-banner { background: #ffebee; color: #c62828; padding: 40px; text-align: center; font-size: 16px; }
+    .prep-section { margin-bottom: 20px; }
+    .prep-section h3 { font-size: 12px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px; }
+    .prep-summary { background: var(--surface-alt); border-radius: 8px; padding: 16px; line-height: 1.6; font-size: 13px; white-space: pre-wrap; }
+    .passage-card { background: var(--surface-alt); border-left: 3px solid var(--accent); padding: 12px 16px; margin-bottom: 10px; border-radius: 0 6px 6px 0; }
+    .passage-card blockquote { font-style: italic; font-size: 13px; line-height: 1.5; margin: 0 0 8px 0; }
+    .passage-card .source { font-size: 11px; color: var(--text-muted); }
+    .question-card { background: var(--surface-alt); border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+    .question-card .q { font-weight: 500; margin-bottom: 6px; font-size: 13px; }
+    .question-card .a { font-size: 12px; color: var(--text-muted); padding-left: 10px; border-left: 2px solid var(--accent); }
+    .tiered-answers { border-left: none; padding-left: 0; }
+    .answer-tier { padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; background: rgba(255,255,255,0.03); border-left: 3px solid var(--border); }
+    .tier-label { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 3px; margin-right: 8px; }
+    .tier-label.basic { background: #2d4a3e; color: #7fca9f; }
+    .tier-label.mid { background: #4a4a2d; color: #caca7f; }
+    .tier-label.advanced { background: #4a2d2d; color: #ca7f7f; }
+    .timeline-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .timeline-table th { background: var(--accent-light); color: var(--accent); padding: 8px; text-align: left; width: 100px; }
+    .timeline-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+    .connection-item { background: var(--surface-alt); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+    .connection-item strong { color: var(--accent); }
+    .teaching-note { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .teaching-note:last-child { border-bottom: none; }
+    .teaching-note::before { content: "•"; color: var(--accent); font-weight: bold; }
+    .sage-badge { display: inline-block; font-size: 9px; background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-left: 8px; }
+    .map-container { height: 300px; border-radius: 8px; overflow: hidden; margin-bottom: 16px; border: 1px solid var(--border); }
+    .plate-selector { position: relative; }
+    .plate-dropdown { position: absolute; top: 100%; left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; min-width: 450px; max-height: 450px; overflow-y: auto; display: none; z-index: 200; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+    .plate-dropdown.open { display: block; }
+    .plate-option { padding: 10px 14px; cursor: pointer; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .plate-option:hover { background: var(--surface-alt); }
+    .plate-option.active { background: var(--accent-light); }
+    .plate-option.no-class { color: var(--text-muted); font-style: italic; }
+    @media (max-width: 900px) {
+      .prep-body { grid-template-columns: 1fr; }
+      .prep-sidebar { border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <span class="course-title" id="courseTitle">Loading...</span>
+      <div class="plate-nav">
+        <button onclick="prevSession()">←</button>
+        <div class="plate-selector">
+          <button onclick="toggleDropdown()" style="min-width:120px"><span id="currentSession">Day 1</span></button>
+          <div class="plate-dropdown" id="sessionDropdown"></div>
+        </div>
+        <button onclick="nextSession()">→</button>
+      </div>
+    </div>
+    <div class="header-tools">
+      <button id="worksheetBtn" onclick="openWorksheet()" style="display:none">Print Worksheet</button>
+      <button onclick="window.open(config.course.syllabusUrl,'_blank')">Syllabus</button>
+    </div>
+  </header>
+  <main>
+    <div class="roster-strip">
+      <h3>Class Roster</h3>
+      <div class="roster-row" id="rosterRow"></div>
+    </div>
+    <div class="prep-container">
+      <div class="prep-header">
+        <div class="week-theme" id="weekTheme">Week 1</div>
+        <h1 id="sessionTitle">Day 1: Introduction</h1>
+        <div class="date" id="sessionDate"></div>
+        <div class="textbook-ref" id="textbookRef" style="display:none"></div>
+      </div>
+      <div class="prep-body">
+        <div class="prep-main" id="prepMain"></div>
+        <div class="prep-sidebar" id="prepSidebar"></div>
+      </div>
+    </div>
+  </main>
+<script>
+let config = {};
+let currentIndex = 0;
+let prepCache = {};
+
+async function loadConfig() {
+  const response = await fetch('config.json');
+  config = await response.json();
+  document.getElementById('courseTitle').textContent = config.course.code + ' · ' + config.course.title;
+  document.title = config.course.code + ' - Teaching Dashboard';
+  renderRoster();
+  initDropdown();
+  loadSession(findToday());
+}
+
+function renderRoster() {
+  let html = '';
+  for (const s of config.students) {
+    const displayName = s.preferredName || s.firstName;
+    html += '<div class="student-nameplate">';
+    html += `<img src="${s.photo}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22%23999%22>${displayName.charAt(0)}</text></svg>'">`;
+    html += `<div class="name">${displayName}</div>`;
+    if (s.pronouns) html += `<div class="pronouns">${s.pronouns}</div>`;
+    html += '</div>';
+  }
+  document.getElementById('rosterRow').innerHTML = html;
+}
+
+function formatDate(d) {
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+}
+
+function formatFullDate(d) {
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'});
+}
+
+function initDropdown() {
+  let html = '';
+  for (let i = 0; i < config.schedule.length; i++) {
+    const s = config.schedule[i];
+    let cls = 'plate-option';
+    if (i === currentIndex) cls += ' active';
+    if (s.noClass) cls += ' no-class';
+    const label = `Day ${i + 1}: ${s.topic.length > 40 ? s.topic.substring(0, 40) + '...' : s.topic}`;
+    html += `<div class="${cls}" onclick="loadSession(${i})">`;
+    html += `<span>${label}</span>`;
+    html += `<span class="date">${s.day} ${formatDate(s.date)}</span>`;
+    html += '</div>';
+  }
+  document.getElementById('sessionDropdown').innerHTML = html;
+}
+
+async function loadSession(i) {
+  if (i < 0 || i >= config.schedule.length) return;
+  currentIndex = i;
+  const s = config.schedule[i];
+
+  document.getElementById('currentSession').textContent = `Day ${i + 1}`;
+  document.getElementById('weekTheme').textContent = `Week ${s.week} · ${s.theme || ''}`;
+  document.getElementById('sessionTitle').textContent = `Day ${i + 1}: ${s.topic}`;
+  document.getElementById('sessionDate').textContent = formatFullDate(s.date);
+
+  const tbRef = document.getElementById('textbookRef');
+  if (s.textbookRef && config.textbook.url) {
+    tbRef.innerHTML = `<a href="${config.textbook.url}" target="_blank">${config.textbook.title}: ${s.textbookRef}</a>`;
+    tbRef.style.display = 'inline-block';
+  } else if (s.textbookRef) {
+    tbRef.textContent = `${config.textbook.title}: ${s.textbookRef}`;
+    tbRef.style.display = 'inline-block';
+  } else {
+    tbRef.style.display = 'none';
+  }
+
+  const prepData = await loadPrepData(i + 1);
+  renderMain(s, prepData);
+  renderSidebar(s, i);
+
+  document.querySelectorAll('.plate-option').forEach((el, j) => {
+    el.className = el.className.replace(' active', '');
+    if (j === i) el.className += ' active';
+  });
+  document.getElementById('sessionDropdown').className = 'plate-dropdown';
+}
+
+async function loadPrepData(sessionNum) {
+  if (prepCache[sessionNum]) return prepCache[sessionNum];
+  try {
+    const response = await fetch(`prep/execsummary-${sessionNum}.json`);
+    if (!response.ok) return null;
+    prepCache[sessionNum] = await response.json();
+    return prepCache[sessionNum];
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderMain(s, prepData) {
+  const m = document.getElementById('prepMain');
+
+  if (s.noClass) {
+    m.innerHTML = `<div class="no-class-banner">No Class — ${s.topic}</div>`;
+    return;
+  }
+  if (s.presentations) {
+    m.innerHTML = '<div class="no-class-banner" style="background:#e3f2fd;color:#1565c0">Student Presentations</div>';
+    return;
+  }
+
+  let h = '';
+
+  // Readings
+  if (s.readings && s.readings.length > 0) {
+    h += '<div class="section-title">Today\'s Readings</div>';
+    for (const r of s.readings) {
+      const tc = r.type || 'primary';
+      const tl = config.readingTypes[tc]?.label || tc;
+      h += `<a class="reading-card ${tc}" href="${r.url || '#'}" target="_blank">`;
+      h += `<div class="type-badge">${tl}</div>`;
+      h += `<div class="title">${r.title}</div>`;
+      if (r.author) h += `<div class="author">${r.author}</div>`;
+      if (r.source || r.pages) {
+        h += `<div class="source">${r.source || ''}${r.pages ? ' · pp. ' + r.pages : ''}</div>`;
+      }
+      h += '</a>';
+    }
+  }
+
+  // Web links
+  if (s.webLinks && s.webLinks.length > 0) {
+    h += '<div class="web-links">';
+    for (const l of s.webLinks) {
+      h += `<a class="web-link" href="${l.url}" target="_blank">${l.title}</a>`;
+    }
+    h += '</div>';
+  }
+
+  // Film
+  if (s.film) {
+    h += '<div class="section-title">Today\'s Film</div>';
+    h += `<div class="film-box"><strong>${s.film.title}</strong> (${s.film.year})<br>`;
+    h += `Director: ${s.film.director}<br>`;
+    if (s.film.url) h += `<a href="${s.film.url}" target="_blank">Watch Film →</a>`;
+    h += '</div>';
+  }
+
+  // Prep data
+  if (prepData) {
+    if (prepData.executiveSummary || prepData.overallSynthesis) {
+      h += '<div class="prep-section"><h3>Executive Summary <span class="sage-badge">Sage</span></h3>';
+      h += `<div class="prep-summary">${prepData.executiveSummary || prepData.overallSynthesis}</div></div>`;
+    }
+
+    if (prepData.keyPassages && prepData.keyPassages.length) {
+      h += '<div class="prep-section"><h3>Key Passages</h3>';
+      for (const kp of prepData.keyPassages.slice(0, 3)) {
+        h += `<div class="passage-card"><blockquote>"${kp.quote}"</blockquote>`;
+        h += `<div class="source">— ${kp.source}${kp.page ? ', p. ' + kp.page : ''}</div></div>`;
+      }
+      h += '</div>';
+    }
+
+    if (prepData.keyQuestions && prepData.keyQuestions.length) {
+      h += '<div class="prep-section"><h3>Key Questions</h3>';
+      for (let q = 0; q < Math.min(prepData.keyQuestions.length, 2); q++) {
+        const kq = prepData.keyQuestions[q];
+        h += `<div class="question-card"><div class="q">${q + 1}. ${kq.question}</div>`;
+        if (kq.basicAnswer) {
+          h += '<div class="a tiered-answers">';
+          h += `<div class="answer-tier"><span class="tier-label basic">Basic</span> ${kq.basicAnswer}</div>`;
+          if (kq.midAnswer) h += `<div class="answer-tier"><span class="tier-label mid">Mid</span> ${kq.midAnswer}</div>`;
+          if (kq.advancedAnswer) h += `<div class="answer-tier"><span class="tier-label advanced">Advanced</span> ${kq.advancedAnswer}</div>`;
+          h += '</div>';
+        } else if (kq.talkingPoints) {
+          h += `<div class="a">${kq.talkingPoints}</div>`;
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+    }
+
+    if (prepData.timeline && prepData.timeline.length) {
+      h += '<div class="prep-section"><h3>Timeline</h3><table class="timeline-table"><tr><th>Date</th><th>Event</th></tr>';
+      for (const t of prepData.timeline) {
+        h += `<tr><td>${t.date}</td><td>${t.event}</td></tr>`;
+      }
+      h += '</table></div>';
+    }
+
+    if (prepData.connections) {
+      h += '<div class="prep-section"><h3>Connections</h3>';
+      if (prepData.connections.fromPrevious) h += `<div class="connection-item"><strong>← Previous:</strong> ${prepData.connections.fromPrevious}</div>`;
+      if (prepData.connections.toNext) h += `<div class="connection-item"><strong>→ Next:</strong> ${prepData.connections.toNext}</div>`;
+      h += '</div>';
+    }
+  }
+
+  if (!h) h = '<p style="color:var(--text-muted);padding:20px">No readings for this day.</p>';
+  m.innerHTML = h;
+}
+
+function renderSidebar(s, i) {
+  const sb = document.getElementById('prepSidebar');
+  let h = '';
+
+  if (s.special) {
+    h += '<div class="section-title">Special Instructions</div>';
+    h += `<div class="notes-box special">${s.special}</div>`;
+  }
+
+  if (s.notes) {
+    h += '<div class="section-title">Notes</div>';
+    h += `<div class="notes-box">${s.notes}</div>`;
+  }
+
+  if (s.assignment) {
+    h += '<div class="assignment-box">';
+    h += '<div class="label">Assignment Due</div>';
+    h += `<div class="name">${s.assignment.name}</div>`;
+    h += `<div class="due">${s.assignment.dueDay}, ${formatDate(s.assignment.due)}</div>`;
+    h += '</div>';
+  }
+
+  // Next session
+  let ni = i + 1;
+  while (ni < config.schedule.length && config.schedule[ni].noClass) ni++;
+  const nx = config.schedule[ni];
+
+  h += '<div class="section-title">Coming Up Next</div>';
+  if (nx) {
+    h += '<div class="upcoming-card">';
+    h += `<div class="plate-num">Day ${ni + 1}</div>`;
+    h += `<div class="topic">${nx.topic}</div>`;
+    h += `<div class="date">${nx.day}, ${formatDate(nx.date)}</div>`;
+    h += '</div>';
+  } else {
+    h += '<div class="upcoming-card"><div class="topic">End of Course</div></div>';
+  }
+
+  sb.innerHTML = h;
+}
+
+function prevSession() { loadSession(currentIndex - 1); }
+function nextSession() { loadSession(currentIndex + 1); }
+
+function toggleDropdown() {
+  const dd = document.getElementById('sessionDropdown');
+  dd.className = dd.className.includes('open') ? 'plate-dropdown' : 'plate-dropdown open';
+}
+
+function findToday() {
+  const t = new Date().toISOString().split('T')[0];
+  for (let i = 0; i < config.schedule.length; i++) {
+    if (config.schedule[i].date === t) return i;
+    if (config.schedule[i].date > t) return i;
+  }
+  return config.schedule.length - 1;
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.plate-selector')) {
+    document.getElementById('sessionDropdown').className = 'plate-dropdown';
+  }
+});
+
+loadConfig();
+</script>
+</body>
+</html>

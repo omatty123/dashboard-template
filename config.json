@@ -1,0 +1,113 @@
+{
+  "course": {
+    "code": "COURSE 101",
+    "title": "Introduction to Subject",
+    "term": "Winter 2026",
+    "startDate": "2026-01-05",
+    "endDate": "2026-03-13",
+    "meetingDays": ["Monday", "Wednesday", "Friday"],
+    "syllabusUrl": "",
+    "canvasUrl": ""
+  },
+  "students": [
+    {"id": "1", "lastName": "Doe", "firstName": "Jane", "preferredName": "", "pronouns": "She/Her", "photo": "photos/doe_jane.png"},
+    {"id": "2", "lastName": "Smith", "firstName": "John", "preferredName": "Johnny", "pronouns": "He/Him", "photo": "photos/smith_john.png"}
+  ],
+  "textbook": {
+    "title": "Main Textbook Title",
+    "author": "Author Name",
+    "url": ""
+  },
+  "schedule": [
+    {
+      "date": "2026-01-05",
+      "day": "Monday",
+      "week": 1,
+      "topic": "Introduction to the course",
+      "theme": "Getting Started",
+      "textbookRef": null,
+      "readings": [],
+      "webLinks": [],
+      "notes": "First day of class",
+      "special": null,
+      "noClass": false,
+      "assignment": null,
+      "film": null,
+      "presentations": false
+    },
+    {
+      "date": "2026-01-07",
+      "day": "Wednesday",
+      "week": 1,
+      "topic": "Core Concepts",
+      "theme": "Foundations",
+      "textbookRef": "Ch. 1",
+      "readings": [
+        {
+          "title": "Introduction to the Field",
+          "author": "Smith",
+          "source": "Reader",
+          "pages": "1-25",
+          "type": "secondary",
+          "url": "https://drive.google.com/..."
+        }
+      ],
+      "webLinks": [
+        {"title": "Helpful Resource", "url": "https://example.com"}
+      ],
+      "notes": null,
+      "special": null,
+      "noClass": false,
+      "assignment": null,
+      "film": null,
+      "presentations": false
+    },
+    {
+      "date": "2026-01-09",
+      "day": "Friday",
+      "week": 1,
+      "topic": "Primary Sources",
+      "theme": "Foundations",
+      "textbookRef": "Ch. 2",
+      "readings": [
+        {
+          "title": "Historical Document",
+          "author": null,
+          "source": "Primary Sources Collection",
+          "pages": "50-75",
+          "type": "primary",
+          "url": "https://drive.google.com/..."
+        }
+      ],
+      "webLinks": [],
+      "notes": null,
+      "special": "Read carefully - we'll discuss in detail",
+      "noClass": false,
+      "assignment": null,
+      "film": null,
+      "presentations": false
+    },
+    {
+      "date": "2026-01-12",
+      "day": "Monday",
+      "week": 2,
+      "topic": "No Class - Holiday",
+      "theme": "Holiday",
+      "textbookRef": null,
+      "readings": [],
+      "webLinks": [],
+      "notes": null,
+      "special": null,
+      "noClass": true,
+      "assignment": null,
+      "film": null,
+      "presentations": false
+    }
+  ],
+  "classNotesUrl": "",
+  "readingTypes": {
+    "primary": {"label": "Primary", "color": "#8b4513"},
+    "secondary": {"label": "Secondary", "color": "#26a69a"},
+    "theoretical": {"label": "Theoretical", "color": "#5c6bc0"}
+  }
+}
