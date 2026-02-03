@@ -1306,6 +1306,11 @@ function parseSyllabus() {
     return;
   }
 
+  // Debug: log what we received
+  console.log('=== SYLLABUS TEXT ===');
+  console.log(text);
+  console.log('=== END TEXT ===');
+
   parsedSessions = [];
   let currentWeek = 1;
   let currentYear = new Date().getFullYear();
@@ -1320,6 +1325,8 @@ function parseSyllabus() {
   let currentSession = null;
   let pendingContent = []; // Accumulate content lines for current session
 
+  console.log('Total lines:', lines.length);
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmedLine = line.trim();
@@ -1329,6 +1336,7 @@ function parseSyllabus() {
     const weekMatch = trimmedLine.match(/^week\s*(\d+)/i);
     if (weekMatch) {
       currentWeek = parseInt(weekMatch[1]);
+      console.log('Found week:', currentWeek);
       continue;
     }
 
@@ -1336,6 +1344,8 @@ function parseSyllabus() {
     const dateInfo = parseDateFromLine(trimmedLine, currentYear, currentMonth);
 
     if (dateInfo) {
+      console.log('Found date:', dateInfo.date, 'from line:', trimmedLine);
+
       // Update current month tracker
       currentMonth = parseInt(dateInfo.date.split('-')[1]);
 
@@ -1385,9 +1395,13 @@ function parseSyllabus() {
     parsedSessions.push(currentSession);
   }
 
+  console.log('Parsed sessions:', parsedSessions.length);
+
   // Show results
   if (parsedSessions.length === 0) {
-    document.getElementById('importStatus').innerHTML = '<div class="import-status error">Could not find any class sessions. Make sure your syllabus includes dates.</div>';
+    // Show debug info
+    const sampleLines = lines.slice(0, 20).map(l => l.trim()).filter(l => l).join('\n');
+    document.getElementById('importStatus').innerHTML = `<div class="import-status error">Could not find any class sessions.<br><br><strong>First 20 lines received:</strong><pre style="text-align:left;font-size:11px;max-height:150px;overflow:auto;background:#111;padding:8px;border-radius:4px;margin-top:8px;">${sampleLines}</pre></div>`;
     document.getElementById('importPreview').style.display = 'none';
   } else {
     document.getElementById('importStatus').innerHTML = `<div class="import-status success">Found ${parsedSessions.length} sessions!</div>`;
