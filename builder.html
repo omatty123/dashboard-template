@@ -1309,6 +1309,7 @@ function parseSyllabus() {
   parsedSessions = [];
   let currentWeek = 1;
   let currentYear = new Date().getFullYear();
+  let currentMonth = 1; // Track current month for bare day numbers
 
   // Try to detect year from text
   const yearMatch = text.match(/20\d{2}/);
@@ -1317,38 +1318,40 @@ function parseSyllabus() {
   // Split into lines
   const lines = text.split('\n');
   let currentSession = null;
-  let lastDate = null;
+  let pendingContent = []; // Accumulate content lines for current session
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
 
     // Check for week number
-    const weekMatch = line.match(/week\s*(\d+)/i);
+    const weekMatch = trimmedLine.match(/^week\s*(\d+)/i);
     if (weekMatch) {
       currentWeek = parseInt(weekMatch[1]);
       continue;
     }
 
     // Try to parse date patterns
-    const dateInfo = parseDateFromLine(line, currentYear);
+    const dateInfo = parseDateFromLine(trimmedLine, currentYear, currentMonth);
 
     if (dateInfo) {
+      // Update current month tracker
+      currentMonth = parseInt(dateInfo.date.split('-')[1]);
+
       // Save previous session if exists
       if (currentSession) {
+        // Process pending content for previous session
+        processSessionContent(currentSession, pendingContent);
         parsedSessions.push(currentSession);
+        pendingContent = [];
       }
 
       // Check if no class
-      const isNoClass = /no\s*class|holiday|break|cancelled|reading\s*period/i.test(line);
+      const isNoClass = /no\s*class|holiday|MLK|MTRP/i.test(trimmedLine);
 
-      // Extract topic (everything after the date and day name)
-      let topic = line;
-      // Remove date patterns
-      topic = topic.replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*/gi, '');
-      topic = topic.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*\d{1,2}(st|nd|rd|th)?,?\s*(20\d{2})?\s*/gi, '');
-      topic = topic.replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?\s*/g, '');
-      topic = topic.replace(/^\s*[-–—:]\s*/, '').trim();
+      // Extract topic - get content after the date on this line
+      let topic = dateInfo.remainingText || '';
 
       if (!topic || topic.length < 3) {
         topic = isNoClass ? 'No Class' : 'TBD';
@@ -1370,39 +1373,21 @@ function parseSyllabus() {
         film: null,
         presentations: false
       };
-
-      lastDate = dateInfo.date;
     } else if (currentSession) {
-      // Check for readings
-      const readingMatch = line.match(/^[\s•\-\*]*(?:reading|read)?:?\s*(.+)/i);
-      if (readingMatch || line.toLowerCase().includes('reading')) {
-        const readingInfo = parseReading(line);
-        if (readingInfo) {
-          currentSession.readings.push(readingInfo);
-        }
-      }
-      // Check for textbook chapter
-      else if (/ch\.?\s*\d+|chapter\s*\d+/i.test(line)) {
-        const chMatch = line.match(/ch\.?\s*(\d+[\-–]?\d*)|chapter\s*(\d+[\-–]?\d*)/i);
-        if (chMatch) {
-          currentSession.textbookRef = `Ch. ${chMatch[1] || chMatch[2]}`;
-        }
-      }
-      // Check for special instructions
-      else if (/skim|focus|important|note:/i.test(line)) {
-        currentSession.special = line;
-      }
+      // Accumulate content for current session
+      pendingContent.push(trimmedLine);
     }
   }
 
   // Don't forget the last session
   if (currentSession) {
+    processSessionContent(currentSession, pendingContent);
     parsedSessions.push(currentSession);
   }
 
   // Show results
   if (parsedSessions.length === 0) {
-    document.getElementById('importStatus').innerHTML = '<div class="import-status error">Could not find any class sessions. Make sure your syllabus includes dates (e.g., "Mon Jan 6" or "1/6/2026").</div>';
+    document.getElementById('importStatus').innerHTML = '<div class="import-status error">Could not find any class sessions. Make sure your syllabus includes dates.</div>';
     document.getElementById('importPreview').style.display = 'none';
   } else {
     document.getElementById('importStatus').innerHTML = `<div class="import-status success">Found ${parsedSessions.length} sessions!</div>`;
@@ -1417,55 +1402,163 @@ function parseSyllabus() {
   }
 }
 
-function parseDateFromLine(line, year) {
-  // Pattern: Mon Jan 6, Monday January 6, Jan 6, etc.
+function processSessionContent(session, contentLines) {
+  // Combine all content lines and look for readings, assignments, etc.
+  for (const line of contentLines) {
+    // Skip empty or header-like lines
+    if (!line || /^(Topics|Readings|ANTHOLOGY|PHILOSOPHY|Discussant)$/i.test(line)) continue;
+
+    // Check for paper/assignment due dates
+    if (/paper\s*#?\d*\s*due|due\s*on/i.test(line)) {
+      const assignMatch = line.match(/paper\s*#?(\d+)/i);
+      session.assignment = {
+        name: assignMatch ? `Paper #${assignMatch[1]}` : 'Assignment',
+        note: line
+      };
+      continue;
+    }
+
+    // Check for "No class" indicators
+    if (/no\s*class|MTRP/i.test(line)) {
+      session.noClass = true;
+      continue;
+    }
+
+    // Check for presentations
+    if (/presentation/i.test(line)) {
+      session.presentations = true;
+      if (session.topic === 'TBD') session.topic = 'Presentations';
+      continue;
+    }
+
+    // Check for meetings
+    if (/one\s*on\s*one|meeting/i.test(line)) {
+      if (session.topic === 'TBD') session.topic = 'One-on-One Meetings';
+      continue;
+    }
+
+    // Otherwise treat as a reading - look for book/article patterns
+    // Lines with page numbers, author names, or anthology references
+    if (/\(\d+\s*-\s*\d+\)|\(pp?\.?\s*\d+|anthology|dynasty|book|chapter|sutra|intro/i.test(line)) {
+      const reading = parseReading(line);
+      if (reading && reading.title.length > 3) {
+        session.readings.push(reading);
+      }
+    }
+    // Lines that look like titles (quoted text, capitalized phrases)
+    else if (/[""][^""]+[""]|^[A-Z][^,]+,/.test(line) && line.length > 10) {
+      const reading = parseReading(line);
+      if (reading && reading.title.length > 3) {
+        session.readings.push(reading);
+      }
+    }
+    // If it's a substantial line and we haven't categorized it, might be a topic expansion
+    else if (line.length > 20 && session.topic === 'TBD') {
+      session.topic = line.substring(0, 60) + (line.length > 60 ? '...' : '');
+    }
+  }
+
+  // If topic is still TBD but we have readings, use first reading as topic hint
+  if (session.topic === 'TBD' && session.readings.length > 0) {
+    session.topic = session.readings[0].title.substring(0, 50);
+  }
+}
+
+function parseDateFromLine(line, year, currentMonth = 1) {
   const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-  // Try: Mon Jan 6, Monday January 6th, etc.
-  const namedMatch = line.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})/i);
+  let month, day, remainingText;
+
+  // Pattern 1: "1/ 5" or "1/5" or "2/2" at START of line (month/day with optional space)
+  const slashStartMatch = line.match(/^(\d{1,2})\/\s*(\d{1,2})\s*(.*)/);
+  if (slashStartMatch) {
+    month = parseInt(slashStartMatch[1]) - 1;
+    day = parseInt(slashStartMatch[2]);
+    remainingText = slashStartMatch[3].trim();
+    const date = new Date(year, month, day);
+    return {
+      date: date.toISOString().split('T')[0],
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+      remainingText: remainingText
+    };
+  }
+
+  // Pattern 2: Just a day number at START of line (e.g., "  7" or "9" or "12")
+  // This continues from the current month
+  const bareNumberMatch = line.match(/^\s*(\d{1,2})\s+(.*)/);
+  if (bareNumberMatch) {
+    const potentialDay = parseInt(bareNumberMatch[1]);
+    // Only treat as a date if it's a reasonable day number (1-31)
+    // and doesn't look like a year or other number
+    if (potentialDay >= 1 && potentialDay <= 31) {
+      day = potentialDay;
+      month = currentMonth - 1; // currentMonth is 1-indexed
+      remainingText = bareNumberMatch[2].trim();
+      const date = new Date(year, month, day);
+      // Sanity check - make sure the day is valid for the month
+      if (date.getDate() === day) {
+        return {
+          date: date.toISOString().split('T')[0],
+          dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+          remainingText: remainingText
+        };
+      }
+    }
+  }
+
+  // Pattern 3: Mon Jan 6, Monday January 6th, etc.
+  const namedMatch = line.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(.*)/i);
   if (namedMatch) {
-    const month = monthNames.indexOf(namedMatch[2].toLowerCase().substring(0, 3));
-    const day = parseInt(namedMatch[3]);
+    month = monthNames.indexOf(namedMatch[2].toLowerCase().substring(0, 3));
+    day = parseInt(namedMatch[3]);
+    remainingText = namedMatch[4].replace(/^(st|nd|rd|th)?,?\s*/, '').trim();
     const date = new Date(year, month, day);
     return {
       date: date.toISOString().split('T')[0],
-      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+      remainingText: remainingText
     };
   }
 
-  // Try: Jan 6, January 6th
-  const monthDayMatch = line.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})/i);
+  // Pattern 4: Jan 6, January 6th (no day name)
+  const monthDayMatch = line.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(.*)/i);
   if (monthDayMatch) {
-    const month = monthNames.indexOf(monthDayMatch[1].toLowerCase().substring(0, 3));
-    const day = parseInt(monthDayMatch[2]);
+    month = monthNames.indexOf(monthDayMatch[1].toLowerCase().substring(0, 3));
+    day = parseInt(monthDayMatch[2]);
+    remainingText = monthDayMatch[3].replace(/^(st|nd|rd|th)?,?\s*/, '').trim();
     const date = new Date(year, month, day);
     return {
       date: date.toISOString().split('T')[0],
-      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+      remainingText: remainingText
     };
   }
 
-  // Try: 1/6/2026 or 1/6
-  const slashMatch = line.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
-  if (slashMatch) {
-    const month = parseInt(slashMatch[1]) - 1;
-    const day = parseInt(slashMatch[2]);
-    const y = slashMatch[3] ? (slashMatch[3].length === 2 ? 2000 + parseInt(slashMatch[3]) : parseInt(slashMatch[3])) : year;
+  // Pattern 5: 1/6/2026 (with year)
+  const fullSlashMatch = line.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})(.*)/);
+  if (fullSlashMatch) {
+    month = parseInt(fullSlashMatch[1]) - 1;
+    day = parseInt(fullSlashMatch[2]);
+    const y = fullSlashMatch[3].length === 2 ? 2000 + parseInt(fullSlashMatch[3]) : parseInt(fullSlashMatch[3]);
+    remainingText = fullSlashMatch[4].trim();
     const date = new Date(y, month, day);
     return {
       date: date.toISOString().split('T')[0],
-      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+      remainingText: remainingText
     };
   }
 
-  // Try: 2026-01-06
-  const isoMatch = line.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  // Pattern 6: 2026-01-06 (ISO format)
+  const isoMatch = line.match(/\b(20\d{2})-(\d{2})-(\d{2})(.*)/);
   if (isoMatch) {
     const date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+    remainingText = isoMatch[4].trim();
     return {
-      date: isoMatch[0],
-      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+      date: `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`,
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1),
+      remainingText: remainingText
     };
   }
 
@@ -1473,42 +1566,72 @@ function parseDateFromLine(line, year) {
 }
 
 function parseReading(line) {
-  // Try to extract author, title, pages
   let title = line;
   let author = null;
   let pages = null;
+  let source = null;
   let type = 'secondary';
 
-  // Remove "Reading:" prefix
+  // Remove common prefixes
   title = title.replace(/^[\s•\-\*]*(?:reading|read)?:?\s*/i, '');
+  title = title.replace(/^ANTHOLOGY:\s*/i, '');
 
   // Check for type hints
-  if (/primary|source|document|original/i.test(line)) type = 'primary';
-  if (/theor|concept|framework/i.test(line)) type = 'theoretical';
+  if (/primary|source|document|original|sutra|book of songs/i.test(line)) type = 'primary';
+  if (/theor|concept|framework|philosophy/i.test(line)) type = 'theoretical';
 
-  // Extract pages: (pp. 1-25), pp. 1-25, pages 1-25
-  const pagesMatch = title.match(/\(?(?:pp?\.?|pages?)\s*(\d+[\-–]\d+|\d+)\)?/i);
+  // Extract pages in various formats: (93 - 122), (pp 3 - 24), pp. 1-25
+  const pagesMatch = title.match(/\((?:pp?\.?\s*)?(\d+)\s*[-–]\s*(\d+)\)|\(pp?\.?\s*(\d+)\s*[-–]\s*(\d+)\)|pp?\.?\s*(\d+)\s*[-–]\s*(\d+)/i);
   if (pagesMatch) {
-    pages = pagesMatch[1];
+    // Find which capture group matched
+    if (pagesMatch[1] && pagesMatch[2]) {
+      pages = `${pagesMatch[1]}-${pagesMatch[2]}`;
+    } else if (pagesMatch[3] && pagesMatch[4]) {
+      pages = `${pagesMatch[3]}-${pagesMatch[4]}`;
+    } else if (pagesMatch[5] && pagesMatch[6]) {
+      pages = `${pagesMatch[5]}-${pagesMatch[6]}`;
+    }
     title = title.replace(pagesMatch[0], '').trim();
   }
 
-  // Try to extract author: "Author, 'Title'" or "Author - Title"
-  const authorTitleMatch = title.match(/^([^,'"]+)[,]\s*['"]?([^'"]+)['"]?$/);
-  if (authorTitleMatch) {
+  // Check for "Introduction and Translation by X"
+  const translatorMatch = title.match(/Introduction and Translation by\s+([^.]+)/i);
+  if (translatorMatch) {
+    source = `Trans. ${translatorMatch[1].trim()}`;
+    title = title.replace(translatorMatch[0], '').trim();
+  }
+
+  // Handle "Author, Title" format
+  const authorTitleMatch = title.match(/^([A-Z][a-z]+(?:\s+[A-Z]\.?\s*[A-Z][a-z]+)?),\s*(.+)/);
+  if (authorTitleMatch && !authorTitleMatch[1].match(/^(Han|Zhou|Tang|Song|Yuan|Period|Dynasty)/i)) {
     author = authorTitleMatch[1].trim();
     title = authorTitleMatch[2].trim();
   }
 
-  // Clean up
-  title = title.replace(/['"]/g, '').replace(/\s+/g, ' ').trim();
+  // Handle quoted titles with content before: Zhou Dynasty "Songs of Ch'u"
+  const dynastyQuotedMatch = title.match(/^((?:Han|Zhou|Tang|Song|Yuan|Period of)\s*(?:Dynasty)?)\s*[""]([^""]+)[""]/i);
+  if (dynastyQuotedMatch) {
+    source = dynastyQuotedMatch[1].trim();
+    title = dynastyQuotedMatch[2].trim();
+  }
 
+  // Handle just quoted titles: "Introduction," or "The Poetry of the Recluse"
+  const quotedMatch = title.match(/[""]([^""]+)[""]/);
+  if (quotedMatch && !dynastyQuotedMatch) {
+    title = quotedMatch[1].trim();
+  }
+
+  // Clean up trailing commas and extra whitespace
+  title = title.replace(/[""]/g, '').replace(/,\s*$/, '').replace(/\s+/g, ' ').trim();
+
+  // Skip lines that are just author names or very short
   if (!title || title.length < 3) return null;
+  if (/^(Cook|Anya|Qiaochuhan)$/i.test(title)) return null; // Skip discussant names
 
   return {
     title: title,
     author: author,
-    source: null,
+    source: source,
     pages: pages,
     type: type,
     url: null
