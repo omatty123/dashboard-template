@@ -1306,26 +1306,42 @@ function parseSyllabus() {
     return;
   }
 
-  // Debug: log what we received
-  console.log('=== SYLLABUS TEXT ===');
+  console.log('=== RAW TEXT ===');
   console.log(text);
-  console.log('=== END TEXT ===');
 
   parsedSessions = [];
-  let currentWeek = 1;
   let currentYear = new Date().getFullYear();
-  let currentMonth = 1; // Track current month for bare day numbers
 
   // Try to detect year from text
   const yearMatch = text.match(/20\d{2}/);
   if (yearMatch) currentYear = parseInt(yearMatch[0]);
 
-  // Split into lines
-  const lines = text.split('\n');
-  let currentSession = null;
-  let pendingContent = []; // Accumulate content lines for current session
+  // PREPROCESSING: Handle table-formatted syllabi where everything runs together
+  // Insert line breaks before date patterns to split the content
+  let processedText = text;
 
-  console.log('Total lines:', lines.length);
+  // Insert breaks before WEEK headers
+  processedText = processedText.replace(/\s*(WEEK\s*\d+)/gi, '\n\n$1\n');
+
+  // Insert breaks before date patterns like "1/ 5" or "1/5" at word boundaries
+  // But be careful not to match times like "10:30" or page numbers
+  processedText = processedText.replace(/([^\d])(\d{1,2}\/\s*\d{1,2})(?!\d|:)/g, '$1\n$2');
+
+  // Insert breaks before standalone day numbers that might be dates (when preceded by non-digit, non-slash)
+  // Look for patterns like "...text 7 Introduction" where 7 is a date
+  processedText = processedText.replace(/([a-zA-Z\.\)]{2,})\s+(\d{1,2})\s+([A-Z])/g, '$1\n$2 $3');
+
+  console.log('=== PROCESSED TEXT ===');
+  console.log(processedText);
+
+  // Now split into lines
+  const lines = processedText.split('\n');
+  let currentSession = null;
+  let currentWeek = 1;
+  let currentMonth = 1;
+  let pendingContent = [];
+
+  console.log('Total lines after processing:', lines.length);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1344,14 +1360,13 @@ function parseSyllabus() {
     const dateInfo = parseDateFromLine(trimmedLine, currentYear, currentMonth);
 
     if (dateInfo) {
-      console.log('Found date:', dateInfo.date, 'from line:', trimmedLine);
+      console.log('Found date:', dateInfo.date, 'from line:', trimmedLine.substring(0, 50));
 
       // Update current month tracker
       currentMonth = parseInt(dateInfo.date.split('-')[1]);
 
       // Save previous session if exists
       if (currentSession) {
-        // Process pending content for previous session
         processSessionContent(currentSession, pendingContent);
         parsedSessions.push(currentSession);
         pendingContent = [];
@@ -1360,8 +1375,11 @@ function parseSyllabus() {
       // Check if no class
       const isNoClass = /no\s*class|holiday|MLK|MTRP/i.test(trimmedLine);
 
-      // Extract topic - get content after the date on this line
+      // Extract topic
       let topic = dateInfo.remainingText || '';
+
+      // Clean up topic - remove trailing metadata
+      topic = topic.split(/\s+(Cook|Anya|Qiaochuhan)\s*$/i)[0].trim();
 
       if (!topic || topic.length < 3) {
         topic = isNoClass ? 'No Class' : 'TBD';
@@ -1371,7 +1389,7 @@ function parseSyllabus() {
         date: dateInfo.date,
         day: dateInfo.dayName,
         week: currentWeek,
-        topic: topic,
+        topic: topic.substring(0, 100), // Limit topic length
         theme: null,
         textbookRef: null,
         readings: [],
@@ -1384,7 +1402,6 @@ function parseSyllabus() {
         presentations: false
       };
     } else if (currentSession) {
-      // Accumulate content for current session
       pendingContent.push(trimmedLine);
     }
   }
@@ -1395,13 +1412,24 @@ function parseSyllabus() {
     parsedSessions.push(currentSession);
   }
 
-  console.log('Parsed sessions:', parsedSessions.length);
+  // Filter out any sessions that look like they came from non-schedule content
+  // (e.g., dates in policies section, office hours, etc.)
+  parsedSessions = parsedSessions.filter(s => {
+    // Keep if it has readings or is marked no-class or has a real topic
+    if (s.readings.length > 0) return true;
+    if (s.noClass) return true;
+    if (s.presentations) return true;
+    // Filter out if topic contains policy-like words
+    if (/policy|disabilities|honor|accommodat/i.test(s.topic)) return false;
+    return true;
+  });
+
+  console.log('Final parsed sessions:', parsedSessions.length);
 
   // Show results
   if (parsedSessions.length === 0) {
-    // Show debug info
-    const sampleLines = lines.slice(0, 20).map(l => l.trim()).filter(l => l).join('\n');
-    document.getElementById('importStatus').innerHTML = `<div class="import-status error">Could not find any class sessions.<br><br><strong>First 20 lines received:</strong><pre style="text-align:left;font-size:11px;max-height:150px;overflow:auto;background:#111;padding:8px;border-radius:4px;margin-top:8px;">${sampleLines}</pre></div>`;
+    const sampleText = text.substring(0, 500);
+    document.getElementById('importStatus').innerHTML = `<div class="import-status error">Could not find class sessions in schedule format.<br><br><strong>Tip:</strong> Try copying ONLY the schedule/calendar portion of your syllabus (dates and topics), not the policies section.<br><br><strong>Text received (first 500 chars):</strong><pre style="text-align:left;font-size:11px;max-height:150px;overflow:auto;background:#111;padding:8px;border-radius:4px;margin-top:8px;">${sampleText}</pre></div>`;
     document.getElementById('importPreview').style.display = 'none';
   } else {
     document.getElementById('importStatus').innerHTML = `<div class="import-status success">Found ${parsedSessions.length} sessions!</div>`;
