@@ -405,6 +405,124 @@
       background: rgba(76, 175, 80, 0.2);
       color: var(--success);
     }
+    .import-section {
+      background: linear-gradient(135deg, var(--surface) 0%, #1e2a3a 100%);
+      border: 2px solid var(--accent);
+    }
+    .import-section h2 {
+      color: var(--accent);
+    }
+    .import-methods {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .import-method {
+      flex: 1;
+      padding: 12px;
+      background: var(--surface-light);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .import-method:hover, .import-method.active {
+      border-color: var(--accent);
+    }
+    .import-method.active {
+      background: rgba(79, 140, 255, 0.1);
+    }
+    .import-method-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    .import-method-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .import-content {
+      display: none;
+    }
+    .import-content.active {
+      display: block;
+    }
+    .import-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 12px;
+    }
+    .import-btn:hover {
+      background: var(--accent-hover);
+    }
+    .import-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .import-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .import-preview h4 {
+      font-size: 12px;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+    .import-preview-item {
+      font-size: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .import-preview-item:last-child {
+      border-bottom: none;
+    }
+    .import-status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .import-status.success {
+      background: rgba(76, 175, 80, 0.2);
+      color: var(--success);
+    }
+    .import-status.error {
+      background: rgba(229, 57, 53, 0.2);
+      color: var(--danger);
+    }
+    .fetch-row {
+      display: flex;
+      gap: 8px;
+    }
+    .fetch-row input {
+      flex: 1;
+    }
+    .fetch-btn {
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .fetch-btn:hover {
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -426,6 +544,70 @@
 
     <!-- Course Info Tab -->
     <div id="tab-course" class="tab-content active">
+      <div class="card import-section">
+        <h2>⚡ Import from Syllabus</h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+          Paste your syllabus or fetch from a Google Doc to auto-populate dates, topics, and readings.
+        </p>
+
+        <div class="import-methods">
+          <div class="import-method active" onclick="setImportMethod('paste')">
+            <div class="import-method-title">Paste Text</div>
+            <div class="import-method-desc">Copy/paste syllabus content</div>
+          </div>
+          <div class="import-method" onclick="setImportMethod('url')">
+            <div class="import-method-title">Google Doc URL</div>
+            <div class="import-method-desc">Fetch from published doc</div>
+          </div>
+        </div>
+
+        <div id="import-paste" class="import-content active">
+          <div class="form-group">
+            <label>Paste your syllabus schedule here</label>
+            <textarea id="syllabusText" rows="8" placeholder="Week 1
+Mon Jan 6 - Introduction to the course
+Wed Jan 8 - Core Concepts
+  Reading: Smith, 'Introduction to the Field' (pp. 1-25)
+Fri Jan 10 - Primary Sources
+  Reading: Historical Document (pp. 50-75)
+
+Week 2
+Mon Jan 13 - NO CLASS (Holiday)
+..."></textarea>
+          </div>
+        </div>
+
+        <div id="import-url" class="import-content">
+          <div class="form-group">
+            <label>Published Google Doc URL</label>
+            <div class="fetch-row">
+              <input type="url" id="syllabusDocUrl" placeholder="https://docs.google.com/document/d/.../pub">
+              <button class="fetch-btn" onclick="fetchSyllabus()">Fetch</button>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+              File → Share → Publish to web → Copy the link
+            </div>
+          </div>
+          <div class="form-group" id="fetchedTextContainer" style="display:none;">
+            <label>Fetched Content (edit if needed)</label>
+            <textarea id="fetchedSyllabusText" rows="8"></textarea>
+          </div>
+        </div>
+
+        <button class="import-btn" onclick="parseSyllabus()">Parse & Import Schedule</button>
+
+        <div id="importStatus"></div>
+        <div id="importPreview" style="display:none;">
+          <div class="import-preview">
+            <h4>Preview: Found Sessions</h4>
+            <div id="importPreviewList"></div>
+          </div>
+          <button class="import-btn" style="background: var(--success); margin-top: 8px;" onclick="confirmImport()">
+            Confirm Import
+          </button>
+        </div>
+      </div>
+
       <div class="card">
         <h2>Course Details</h2>
         <div class="form-grid">
@@ -1053,6 +1235,324 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.remove('active');
   });
 });
+
+// ============ SYLLABUS IMPORT ============
+
+let parsedSessions = [];
+let currentImportMethod = 'paste';
+
+function setImportMethod(method) {
+  currentImportMethod = method;
+  document.querySelectorAll('.import-method').forEach(m => m.classList.remove('active'));
+  document.querySelector(`.import-method[onclick="setImportMethod('${method}')"]`).classList.add('active');
+  document.querySelectorAll('.import-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`import-${method}`).classList.add('active');
+  document.getElementById('importStatus').innerHTML = '';
+  document.getElementById('importPreview').style.display = 'none';
+}
+
+async function fetchSyllabus() {
+  const url = document.getElementById('syllabusDocUrl').value.trim();
+  if (!url) return alert('Please enter a Google Doc URL');
+
+  // Convert to published HTML URL if needed
+  let fetchUrl = url;
+  if (url.includes('/document/d/') && !url.includes('/pub')) {
+    const match = url.match(/\/document\/d\/([^\/]+)/);
+    if (match) {
+      fetchUrl = `https://docs.google.com/document/d/${match[1]}/pub`;
+    }
+  }
+
+  document.getElementById('importStatus').innerHTML = '<div class="import-status" style="background:var(--surface-light);color:var(--text-muted);">Fetching...</div>';
+
+  try {
+    // Use allorigins.win as a CORS proxy
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}`;
+    const response = await fetch(proxyUrl);
+    const html = await response.text();
+
+    // Parse HTML to extract text
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Remove scripts and styles
+    doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+    // Get text content
+    let text = doc.body.innerText || doc.body.textContent;
+
+    // Clean up whitespace
+    text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+    document.getElementById('fetchedSyllabusText').value = text;
+    document.getElementById('fetchedTextContainer').style.display = 'block';
+    document.getElementById('importStatus').innerHTML = '<div class="import-status success">Fetched successfully! Review the text above, then click "Parse & Import Schedule".</div>';
+  } catch (error) {
+    document.getElementById('importStatus').innerHTML = `<div class="import-status error">Failed to fetch: ${error.message}. Try pasting the content manually.</div>`;
+  }
+}
+
+function parseSyllabus() {
+  let text = '';
+  if (currentImportMethod === 'paste') {
+    text = document.getElementById('syllabusText').value;
+  } else {
+    text = document.getElementById('fetchedSyllabusText').value;
+  }
+
+  if (!text.trim()) {
+    document.getElementById('importStatus').innerHTML = '<div class="import-status error">Please enter or fetch syllabus content first.</div>';
+    return;
+  }
+
+  parsedSessions = [];
+  let currentWeek = 1;
+  let currentYear = new Date().getFullYear();
+
+  // Try to detect year from text
+  const yearMatch = text.match(/20\d{2}/);
+  if (yearMatch) currentYear = parseInt(yearMatch[0]);
+
+  // Split into lines
+  const lines = text.split('\n');
+  let currentSession = null;
+  let lastDate = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Check for week number
+    const weekMatch = line.match(/week\s*(\d+)/i);
+    if (weekMatch) {
+      currentWeek = parseInt(weekMatch[1]);
+      continue;
+    }
+
+    // Try to parse date patterns
+    const dateInfo = parseDateFromLine(line, currentYear);
+
+    if (dateInfo) {
+      // Save previous session if exists
+      if (currentSession) {
+        parsedSessions.push(currentSession);
+      }
+
+      // Check if no class
+      const isNoClass = /no\s*class|holiday|break|cancelled|reading\s*period/i.test(line);
+
+      // Extract topic (everything after the date and day name)
+      let topic = line;
+      // Remove date patterns
+      topic = topic.replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*/gi, '');
+      topic = topic.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*\d{1,2}(st|nd|rd|th)?,?\s*(20\d{2})?\s*/gi, '');
+      topic = topic.replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?\s*/g, '');
+      topic = topic.replace(/^\s*[-–—:]\s*/, '').trim();
+
+      if (!topic || topic.length < 3) {
+        topic = isNoClass ? 'No Class' : 'TBD';
+      }
+
+      currentSession = {
+        date: dateInfo.date,
+        day: dateInfo.dayName,
+        week: currentWeek,
+        topic: topic,
+        theme: null,
+        textbookRef: null,
+        readings: [],
+        webLinks: [],
+        notes: null,
+        special: null,
+        noClass: isNoClass,
+        assignment: null,
+        film: null,
+        presentations: false
+      };
+
+      lastDate = dateInfo.date;
+    } else if (currentSession) {
+      // Check for readings
+      const readingMatch = line.match(/^[\s•\-\*]*(?:reading|read)?:?\s*(.+)/i);
+      if (readingMatch || line.toLowerCase().includes('reading')) {
+        const readingInfo = parseReading(line);
+        if (readingInfo) {
+          currentSession.readings.push(readingInfo);
+        }
+      }
+      // Check for textbook chapter
+      else if (/ch\.?\s*\d+|chapter\s*\d+/i.test(line)) {
+        const chMatch = line.match(/ch\.?\s*(\d+[\-–]?\d*)|chapter\s*(\d+[\-–]?\d*)/i);
+        if (chMatch) {
+          currentSession.textbookRef = `Ch. ${chMatch[1] || chMatch[2]}`;
+        }
+      }
+      // Check for special instructions
+      else if (/skim|focus|important|note:/i.test(line)) {
+        currentSession.special = line;
+      }
+    }
+  }
+
+  // Don't forget the last session
+  if (currentSession) {
+    parsedSessions.push(currentSession);
+  }
+
+  // Show results
+  if (parsedSessions.length === 0) {
+    document.getElementById('importStatus').innerHTML = '<div class="import-status error">Could not find any class sessions. Make sure your syllabus includes dates (e.g., "Mon Jan 6" or "1/6/2026").</div>';
+    document.getElementById('importPreview').style.display = 'none';
+  } else {
+    document.getElementById('importStatus').innerHTML = `<div class="import-status success">Found ${parsedSessions.length} sessions!</div>`;
+    document.getElementById('importPreview').style.display = 'block';
+    document.getElementById('importPreviewList').innerHTML = parsedSessions.map(s =>
+      `<div class="import-preview-item">
+        <strong>${s.day}, ${s.date}</strong> — ${s.topic}
+        ${s.noClass ? '<span style="color:var(--danger)">(No Class)</span>' : ''}
+        ${s.readings.length ? `<span style="color:var(--text-muted)">(${s.readings.length} reading${s.readings.length > 1 ? 's' : ''})</span>` : ''}
+      </div>`
+    ).join('');
+  }
+}
+
+function parseDateFromLine(line, year) {
+  // Pattern: Mon Jan 6, Monday January 6, Jan 6, etc.
+  const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  // Try: Mon Jan 6, Monday January 6th, etc.
+  const namedMatch = line.match(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})/i);
+  if (namedMatch) {
+    const month = monthNames.indexOf(namedMatch[2].toLowerCase().substring(0, 3));
+    const day = parseInt(namedMatch[3]);
+    const date = new Date(year, month, day);
+    return {
+      date: date.toISOString().split('T')[0],
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+    };
+  }
+
+  // Try: Jan 6, January 6th
+  const monthDayMatch = line.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})/i);
+  if (monthDayMatch) {
+    const month = monthNames.indexOf(monthDayMatch[1].toLowerCase().substring(0, 3));
+    const day = parseInt(monthDayMatch[2]);
+    const date = new Date(year, month, day);
+    return {
+      date: date.toISOString().split('T')[0],
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+    };
+  }
+
+  // Try: 1/6/2026 or 1/6
+  const slashMatch = line.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if (slashMatch) {
+    const month = parseInt(slashMatch[1]) - 1;
+    const day = parseInt(slashMatch[2]);
+    const y = slashMatch[3] ? (slashMatch[3].length === 2 ? 2000 + parseInt(slashMatch[3]) : parseInt(slashMatch[3])) : year;
+    const date = new Date(y, month, day);
+    return {
+      date: date.toISOString().split('T')[0],
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+    };
+  }
+
+  // Try: 2026-01-06
+  const isoMatch = line.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (isoMatch) {
+    const date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+    return {
+      date: isoMatch[0],
+      dayName: dayNames[date.getDay()].charAt(0).toUpperCase() + dayNames[date.getDay()].slice(1)
+    };
+  }
+
+  return null;
+}
+
+function parseReading(line) {
+  // Try to extract author, title, pages
+  let title = line;
+  let author = null;
+  let pages = null;
+  let type = 'secondary';
+
+  // Remove "Reading:" prefix
+  title = title.replace(/^[\s•\-\*]*(?:reading|read)?:?\s*/i, '');
+
+  // Check for type hints
+  if (/primary|source|document|original/i.test(line)) type = 'primary';
+  if (/theor|concept|framework/i.test(line)) type = 'theoretical';
+
+  // Extract pages: (pp. 1-25), pp. 1-25, pages 1-25
+  const pagesMatch = title.match(/\(?(?:pp?\.?|pages?)\s*(\d+[\-–]\d+|\d+)\)?/i);
+  if (pagesMatch) {
+    pages = pagesMatch[1];
+    title = title.replace(pagesMatch[0], '').trim();
+  }
+
+  // Try to extract author: "Author, 'Title'" or "Author - Title"
+  const authorTitleMatch = title.match(/^([^,'"]+)[,]\s*['"]?([^'"]+)['"]?$/);
+  if (authorTitleMatch) {
+    author = authorTitleMatch[1].trim();
+    title = authorTitleMatch[2].trim();
+  }
+
+  // Clean up
+  title = title.replace(/['"]/g, '').replace(/\s+/g, ' ').trim();
+
+  if (!title || title.length < 3) return null;
+
+  return {
+    title: title,
+    author: author,
+    source: null,
+    pages: pages,
+    type: type,
+    url: null
+  };
+}
+
+function confirmImport() {
+  if (parsedSessions.length === 0) return;
+
+  // Add to schedule
+  data.schedule = [...data.schedule, ...parsedSessions];
+
+  // Sort by date
+  data.schedule.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Try to extract course info from start/end dates
+  if (data.schedule.length > 0) {
+    if (!data.course.startDate) {
+      data.course.startDate = data.schedule[0].date;
+    }
+    if (!data.course.endDate) {
+      data.course.endDate = data.schedule[data.schedule.length - 1].date;
+    }
+    // Detect meeting days
+    const days = new Set(data.schedule.filter(s => !s.noClass).map(s => s.day));
+    if (data.course.meetingDays.length === 0) {
+      data.course.meetingDays = Array.from(days);
+    }
+  }
+
+  saveData();
+  populateForm();
+
+  // Clear import area
+  document.getElementById('syllabusText').value = '';
+  document.getElementById('fetchedSyllabusText').value = '';
+  document.getElementById('importPreview').style.display = 'none';
+  parsedSessions = [];
+
+  // Switch to schedule tab
+  showTab('schedule');
+
+  document.getElementById('importStatus').innerHTML = '<div class="import-status success">Imported! Check the Schedule tab.</div>';
+}
 
 // Init
 loadData();
